@@ -2,4 +2,4 @@
 user: "devops"
 source: "http://archive.ubuntu.com"
 source_security: "http://security.ubuntu.com"
-reposerver: "http://192.168.150.202"
+reposerver: "https://mirroronet.pl/pub/mirrors/ubuntu/"
