@@ -1,0 +1,19 @@
+- hosts: localhost
+  gather_facts: true
+  become_user: root
+
+  tasks:
+    - name: get the username running the deploy
+      become: false
+      local_action: command whoami
+      register: username
+    - name: get the privileged user running the deploy
+      become: true
+      local_action: command whoami
+      register: become_username
+    - name : Install unzip package
+      become: true
+      apt: name=unzip state=present update_cache=true
+    - name : Install ksh package
+      become: true
+      apt: name=ksh state=present update_cache=true

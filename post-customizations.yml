@@ -1,0 +1,133 @@
+- hosts: localhost
+  gather_facts: true
+  vars_files:
+    - parameters.yaml
+  become_user: root
+
+  tasks:
+    - name: Enable Ubuntu autologin setting
+      become: true
+      lineinfile:
+        dest: /etc/gdm3/custom.conf
+        regexp: '^#?\s*AutomaticLoginEnable.*$'
+        line: "AutomaticLoginEnable = true"
+    - name: Enable Ubuntu autologin for user
+      become: true
+      lineinfile:
+        dest: /etc/gdm3/custom.conf
+        regexp: '^#?\s*AutomaticLogin.*$'
+        line: "AutomaticLogin = {{ user }}"
+# Remove snap from the Ubuntu image
+    - name: Disable service snapd and ensure it is masked
+      become: true
+      ansible.builtin.systemd_service:
+        name: snapd
+        enabled: false
+        masked: yes
+      with_items:
+        - { name: "snapd.service" }
+        - { name: "snapd.socket" }
+        - { name: "snapd.seeded.service" }
+    - name: Unmounting firefox snap cache
+      become: true
+      ansible.builtin.command: umount /var/snap/firefox/common/host-hunspell
+      ignore_errors: true
+    - name: remove firefox snap
+      become: true
+      ansible.builtin.command: snap remove firefox
+      ignore_errors: true
+    - name: remove snap cache
+      become: true
+      ansible.builtin.command: rm -rf /var/cache/snapd/
+      ignore_errors: true
+    - name: remove snap package with purge
+      become: true
+      ansible.builtin.command: apt autoremove -y --purge snapd
+      ignore_errors: true
+    - name: prevent snapd will be reinstalled
+      become: true
+      ansible.builtin.command: sudo apt-mark hold snapd
+      ignore_errors: true
+    - name: "Uninstall packages"
+      become: true
+      apt:
+        name: snapd
+        state: absent
+      ignore_errors: true
+# Install firefox via APT
+    - name: Blocking install firefox via snap
+      become: true
+      copy:
+        dest: /etc/apt/preferences.d/firefox-no-snap
+        content: |
+          Package: firefox*
+          Pin: release o=Ubuntu*
+          Pin-Priority: -1
+    - name: Add firefox apt-add-repository
+      become: true
+      apt_repository:
+        repo: "{{ item.repo }}"
+        state: "{{ item.state }}"
+      with_items:
+        - { state: "present", repo: "ppa:mozillateam/firefox-next" }
+    - name: apt install
+      become: true
+      apt:
+        name: "{{ item.name }}"
+        state: "{{ item.state }}"
+      with_items:
+        - { state: "latest", name: "firefox" }
+        - { state: "latest", name: "firefox-locale-en" }
+        - { state: "latest", name: "libsecret-tools" }
+        - { state: "latest", name: "net-tools" }
+        - { state: "latest", name: "tree" }
+        - { state: "latest", name: "libpam-gnome-keyring" }
+# Update client APT to point to reposerver instead of online Ubuntu repo
+    - name: Update /etc/apt/sources.list with reposerver
+      become: true
+      replace:
+        path: /etc/apt/sources.list
+        regexp: '(\s+){{ source }}/ubuntu/?(\s+.*)?$'
+        replace: '\1{{ reposerver }}/ubuntu-prod \2'
+    - name: Update security repos from /etc/apt/sources.list with reposerver
+      become: true
+      replace:
+        path: /etc/apt/sources.list
+        regexp: '(\s+){{ source_security }}/ubuntu/?(\s+.*)?$'
+        replace: '\1{{ reposerver }}/ubuntu-prod \2'
+# Gnome desktop settings
+    - name: Gnome desktop user profile enabling
+      become: true
+      copy:
+        dest: /etc/dconf/profile/user
+        content: |
+          user-db:user
+          system-db:local
+    - name: ensures /etc/dconf/db/local.d dir exists
+      become: true
+      file: 
+        path: "/etc/dconf/db/local.d/"
+        state: directory
+    - name: Gnome desktop settings
+      become: true
+      copy:
+        dest: /etc/dconf/db/local.d/01-gnome-settings
+        content: |
+          [org/gnome/desktop/remote-desktop/rdp]
+          screen-share-mode='extend'
+          view-only=false
+
+          [org/gnome/desktop/session]
+          idle-delay=uint32 0
+
+          [org/gnome/desktop/screensaver]
+          lock-enabled=false
+    - name: Update them via dconf
+      become: true     
+      ansible.builtin.command: dconf update
+      ignore_errors: true
+    - name: Restore local desktop settings
+      become: true
+      ansible.builtin.unarchive:
+        src: settings.tgz
+        dest: /home

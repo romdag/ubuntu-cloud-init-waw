@@ -1,0 +1,72 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+# Above is a recommended header for all shell scripts.
+# More: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+
+echo "Starting firefox auto launcher"
+# URLs to open
+prompter="https://www.jt-studio.uk/blackjack/prompter"
+chat="https://www.jt-studio.uk/blackjack/prompter/chat"
+prompter_profile="Prompter"
+chat_profile="Chat"
+
+# Define the DISPLAY
+export DISPLAY=:0
+
+
+# Function to start firefox and send it to background if successful
+start_firefox() {
+    local url=$1
+    local profile=$2
+
+    echo "Starting Firefox with $profile"
+    set -x
+    firefox --kiosk -P "$profile" --private-window "$url" &
+    set +x
+
+    FF_PID=$!
+    sleep 15 # wait for the browser to open
+
+    # Check if the process is still running
+    if kill -0 $FF_PID 2>/dev/null; then
+        echo "Firefox started successfully"
+    else
+        echo "Firefox failed to start"
+        exit 1
+    fi
+}
+
+create_firefox_profile() {
+        local profile=$1
+        echo "Creating firefox profile $profile"
+        set -x
+        firefox --headless -CreateProfile "$profile" || true
+        set +x
+}
+
+# Kill all existing instances of firefox
+echo "Killing all firefox instances"
+pkill --exact firefox || true
+sleep 5
+
+# Create profiles if they don't exist
+create_firefox_profile $chat_profile
+create_firefox_profile $prompter_profile
+
+
+echo "Opening firefox with chat on second display"
+start_firefox "$chat" "$chat_profile"
+
+echo "Setting firefox on second display to fullscreen"
+wmctrl -r :ACTIVE: -e 0,{{ second_display_resolution }}
+wmctrl -r :ACTIVE: -b add,fullscreen # make it fullscreen
+
+echo "Opening firefox with prompter on first display"
+start_firefox "$prompter" "$prompter_profile"
+
+echo "Setting firefox on first display to fullscreen"
+wmctrl -r :ACTIVE: -e 0,{{ first_display_resolution }}
+wmctrl -r :ACTIVE: -b add,fullscreen # make it fullscreen
+
+echo "Script finished successfully"
