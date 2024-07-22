@@ -82,19 +82,6 @@
         - { state: "latest", name: "net-tools" }
         - { state: "latest", name: "tree" }
         - { state: "latest", name: "libpam-gnome-keyring" }
-# Update client APT to point to reposerver instead of online Ubuntu repo
-    - name: Update /etc/apt/sources.list with reposerver
-      become: true
-      replace:
-        path: /etc/apt/sources.list
-        regexp: '(\s+){{ source }}/ubuntu/?(\s+.*)?$'
-        replace: '\1{{ reposerver }}/ubuntu-prod \2'
-    - name: Update security repos from /etc/apt/sources.list with reposerver
-      become: true
-      replace:
-        path: /etc/apt/sources.list
-        regexp: '(\s+){{ source_security }}/ubuntu/?(\s+.*)?$'
-        replace: '\1{{ reposerver }}/ubuntu-prod \2'
 # Gnome desktop settings
     - name: Gnome desktop user profile enabling
       become: true
