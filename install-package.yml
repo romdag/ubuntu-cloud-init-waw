@@ -1,4 +1,4 @@
-- hosts: localhost
+- hosts: all
   gather_facts: true
   become_user: root
 
@@ -17,3 +17,9 @@
     - name : Install ksh package
       become: true
       apt: name=ksh state=present update_cache=true
+    - name : Install xorg
+      become: true
+      apt: name=xorg state=present update_cache=true
+    - name : Install ubuntu-desktop
+      become: true
+      apt: name=ubuntu-desktop state=present update_cache=true

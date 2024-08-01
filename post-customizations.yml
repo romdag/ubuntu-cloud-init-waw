@@ -1,4 +1,4 @@
-- hosts: localhost
+- hosts: all
   gather_facts: true
   vars_files:
     - parameters.yaml
@@ -11,12 +11,20 @@
         dest: /etc/gdm3/custom.conf
         regexp: '^#?\s*AutomaticLoginEnable.*$'
         line: "AutomaticLoginEnable = true"
+
     - name: Enable Ubuntu autologin for user
       become: true
       lineinfile:
         dest: /etc/gdm3/custom.conf
         regexp: '^#?\s*AutomaticLogin.*$'
         line: "AutomaticLogin = {{ user }}"
+    
+    - name: Enable Ubuntu autologin setting
+      become: true
+      lineinfile:
+        dest: /etc/gdm3/custom.conf
+        regexp: '^#?\s*WaylandEnable.*$'
+        line: "WaylandEnable = false"
 # Remove snap from the Ubuntu image
     - name: Disable service snapd and ensure it is masked
       become: true
@@ -95,13 +103,20 @@
       file: 
         path: "/etc/dconf/db/local.d/"
         state: directory
+    
+    - name: Restore local desktop settings
+      become: true
+      ansible.builtin.unarchive:
+        src: settings.tgz
+        dest: /home
+    
     - name: Gnome desktop settings
       become: true
       copy:
         dest: /etc/dconf/db/local.d/01-gnome-settings
         content: |
           [org/gnome/desktop/remote-desktop/rdp]
-          screen-share-mode='extend'
+          enable=true
           view-only=false
 
           [org/gnome/desktop/session]
@@ -109,12 +124,8 @@
 
           [org/gnome/desktop/screensaver]
           lock-enabled=false
+
     - name: Update them via dconf
       become: true     
       ansible.builtin.command: dconf update
       ignore_errors: true
-    - name: Restore local desktop settings
-      become: true
-      ansible.builtin.unarchive:
-        src: settings.tgz
-        dest: /home
